@@ -38,6 +38,20 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
+// Get all users
+app.get('/api/users', (req, res) => {
+  User.find({}, (err, users) => {
+    if (err) {
+      return res.json({ error: err })
+    }
+    // return username and _id for users
+    // res.json(users.map(user => ({ username: user.username, _id: user._id })))
+    res.json(users)
+  })
+  
+  // select only the username and _id fields
+  .select({ username: 1, _id: 1 })
+})
 
 // Create a new user
 app.post('/api/users', (req, res) => {
