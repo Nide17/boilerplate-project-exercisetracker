@@ -59,7 +59,10 @@ app.post('/api/users', (req, res) => {
       if (err) {
         return res.json({ error: err })
       }
-      res.json({ username: user.username, _id: user._id })
+      res.json({
+        username: user.username,
+        _id: user._id
+      })
     })
   })
 })
@@ -99,7 +102,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
         username: user.username,
         description: data.description,
         duration: data.duration,
-        date: data.date,
+        date: data.date.toDateString(),
         _id: data.userId
       })
     })
@@ -170,15 +173,27 @@ app.get('/api/users/:id/logs', (req, res) => {
           .slice(0, limit)
       }
 
+    // format the exercises
+      exercises = exercises.map(exercise => {
+      return {
+        description: exercise.description,
+        duration: exercise.duration,
+        date: exercise.date.toDateString()
+      }
+
+    })
+
       // return the user logs
       res.json({
-        _id: user._id,
         username: user.username,
         count: exercises.length,
+        _id: user._id,
         log: exercises
       })
     })
       .select({ description: 1, duration: 1, date: 1, _id: 0 })
+
+
   })
 })
 
