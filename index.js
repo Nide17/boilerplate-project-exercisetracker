@@ -24,7 +24,7 @@ const User = mongoose.model('User', userSchema)
 
 // Create Exercise Schema with user relation
 const exerciseSchema = new mongoose.Schema({
-  user: userSchema,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   description: String,
   duration: Number,
   date: Date
@@ -101,7 +101,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
 
     // create a new exercise
     const newExercise = new Exercise({
-      user: user,
+      userId: userId,
       description: description,
       duration: duration,
       date: date ? new Date(date) : new Date()
@@ -117,7 +117,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
         description: data.description,
         duration: data.duration,
         date: data.date.toDateString(),
-        _id: userId
+        _id: data.userId
       })
     })
 
