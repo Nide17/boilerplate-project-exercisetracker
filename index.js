@@ -167,15 +167,6 @@ app.get('/api/users/:_id/logs', (req, res) => {
         return res.json({ error: 'Exercises not found' })
       }
 
-      // format the exercises
-      exercises = exercises.map(exercise => {
-        return {
-          description: exercise.description,
-          duration: exercise.duration,
-          date: exercise.date.toDateString()
-        }
-      })
-
       // filter the exercises by date range
       if (from && to) {
         exercises = exercises.filter(
@@ -186,6 +177,15 @@ app.get('/api/users/:_id/logs', (req, res) => {
       } else if (to) {
         exercises = exercises.filter(exercise => exercise.date <= new Date(to))
       }
+
+      // format the exercises
+      exercises = exercises.map(exercise => {
+        return {
+          description: exercise.description,
+          duration: exercise.duration,
+          date: exercise.date.toDateString()
+        }
+      })
 
       // limit the number of exercises to return
       if (limit) {
@@ -204,7 +204,6 @@ app.get('/api/users/:_id/logs', (req, res) => {
       .select({ description: 1, duration: 1, date: 1, _id: 0 })
   })
 })
-
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
