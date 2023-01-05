@@ -58,6 +58,10 @@ app.post('/api/users', (req, res) => {
 
   const username = req.body.username
 
+  if (!username || username.length === 0) {
+    res.json({ error: "empty username" });
+  }
+
   User.findOne({ username }, (err, user) => {
     if (err) {
       return res.json({ error: err })
@@ -87,6 +91,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   const userId = req.params._id
 
   const { description, duration, date } = req.body
+  const dateToSave = date ? new Date(date) : new Date()
 
   // check if the date is valid
   if (date && !Date.parse(date)) {
@@ -103,8 +108,8 @@ app.post('/api/users/:_id/exercises', (req, res) => {
     const newExercise = new Exercise({
       userId: userId,
       description: description,
-      duration: duration,
-      date: date ? new Date(date) : new Date()
+      duration: parseInt(duration),
+      date: dateToSave.toDateString()
     })
 
     newExercise.save((err, data) => {
