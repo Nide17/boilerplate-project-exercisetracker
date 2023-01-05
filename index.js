@@ -94,7 +94,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   }
 
   // find the user
-  User.findOne({ userId }, (err, user) => {
+  User.findOne({ _id: userId }, (err, user) => {
     if (err) {
       return res.json({ error: err })
     }
