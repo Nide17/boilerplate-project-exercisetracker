@@ -16,8 +16,7 @@ mongoose.connect('mongodb+srv://parmenide:jesus123@fccmongoose.srblnut.mongodb.n
 
 // create a user schema with username
 const userSchema = new mongoose.Schema({
-  username: String,
-  exercises: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Exercise' }]
+  username: String
 })
 
 // create a model
@@ -25,6 +24,7 @@ const User = mongoose.model('User', userSchema)
 
 // Create Exercise Schema with user relation
 const exerciseSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   description: String,
   duration: Number,
   date: Date
@@ -48,9 +48,9 @@ app.get('/api/users', (req, res) => {
     // res.json(users.map(user => ({ username: user.username, _id: user._id })))
     res.json(users)
   })
-  
-  // select only the username and _id fields
-  .select({ username: 1, _id: 1 })
+
+    // select only the username and _id fields
+    .select({ username: 1, _id: 1 })
 })
 
 // Create a new user
@@ -101,6 +101,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
 
     // create a new exercise
     const newExercise = new Exercise({
+      userId: userId,
       description: description,
       duration: duration,
       date: date ? new Date(date) : new Date()
@@ -111,13 +112,6 @@ app.post('/api/users/:_id/exercises', (req, res) => {
         return res.json({ error: err })
       }
 
-      // push the exercise to the user's exercises array
-      user.exercises.push(data._id)
-
-      // save the user
-      user.save()
-
-      // return the exercise
       res.json({
         username: user.username,
         description: data.description,
@@ -131,8 +125,8 @@ app.post('/api/users/:_id/exercises', (req, res) => {
 })
 
 // Get user exercises between date range and limit the number to return
-app.get('/api/users/:id/logs', (req, res) => {
-  const userId = req.params.id
+app.get('/api/users/:_id/logs', (req, res) => {
+  const userId = req.params._id
 
   // remove [ and ] from the request query object's keys and values
   const query = Object.keys(req.query).reduce((acc, key) => {
@@ -145,6 +139,10 @@ app.get('/api/users/:id/logs', (req, res) => {
 
   }, {})
 
+  // Failed: You can add from, to and limit parameters to a GET /api/users/:_id/logs request to retrieve part of the log of any user. from and to are dates in yyyy-mm-dd format. limit is an integer of how many logs to send back.
+
+  // The response returned from POST /api/users/:_id/exercises will be the user object with the exercise fields added.
+
   // extract the objects from the request query
   const { from, to, limit } = query
 
@@ -156,7 +154,7 @@ app.get('/api/users/:id/logs', (req, res) => {
     return res.json({ error: 'Invalid date' })
   }
 
-  // find the user and populate the exercises
+  // find the user
   User.findOne({ userId }, (err, user) => {
     if (err) {
       return res.json({ error: err })
@@ -166,20 +164,57 @@ app.get('/api/users/:id/logs', (req, res) => {
       return res.json({ error: 'User not found' })
     }
 
+    // get the exercises
+    Exercise.find({ userId }, (err, exercises) => {
+
+      if (err) {
+        return res.json({ error: err })
+      }
+      if (!exercises) {
+        return res.json({ error: 'Exercises not found' })
+      }
+
+      // filter the exercises by date range
+      if (from && to) {
+        exercises = exercises.filter(
+          exercise => exercise.date >= new Date(from) && exercise.date <= new Date(to)
+        )
+      } else if (from) {
+        exercises = exercises.filter(exercise => exercise.date >= new Date(from))
+      } else if (to) {
+        exercises = exercises.filter(exercise => exercise.date <= new Date(to))
+      }
+
+      // limit the number of exercises to return
+      if (limit) {
+        exercises = exercises
+          .slice(0, limit)
+      }
+
+      // format the exercises
+      exercises = exercises.map(exercise => {
+        return {
+          description: exercise.description,
+          duration: exercise.duration,
+          date: exercise.date.toDateString()
+        }
+
+      })
+
+      // return the user logs
       res.json({
-      username: user.username,
-      count: user.exercises.length,
+        username: user.username,
+        count: exercises.length,
         _id: user._id,
-      log: 
-      user.exercises.map(exercise => ({
-        description: exercise.description,
-        duration: exercise.duration,
-        date: exercise.date.toDateString()
-      }))
+        log: exercises
+      })
     })
+      .select({ description: 1, duration: 1, date: 1, _id: 0 })
+
+
   })
-  .populate({ path: 'exercises', match: { date: { $gte: from, $lte: to } }, options: { limit: limit } })
 })
+
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
