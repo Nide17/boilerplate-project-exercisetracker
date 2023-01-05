@@ -14,201 +14,134 @@ app.use(express.static('public'))
 // connect to the database
 mongoose.connect('mongodb+srv://parmenide:jesus123@fccmongoose.srblnut.mongodb.net/?retryWrites=true&w=majority', { useNewUrlParser: true, useUnifiedTopology: true })
 
-// create a user schema with username
-const userSchema = new mongoose.Schema({
-  username: String
-})
+const defaultDate = () => new Date().toISOString().slice(0, 10)
 
-// create a model
-const User = mongoose.model('User', userSchema)
+const userSchema = mongoose.Schema(
+  {
+    username: { type: String, required: true, unique: false },
+    exercices: [
+      {
+        description: { type: String },
+        duration: { type: Number },
+        date: { type: String, required: false }
+      }
+    ]
+  }
+)
+const User = mongoose.model('Users', userSchema)
 
-// Create Exercise Schema with user relation
-const exerciseSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  description: String,
-  duration: Number,
-  date: Date
-})
-
-// create a model
-const Exercise = mongoose.model('Exercise', exerciseSchema)
-
-// Default route
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/views/index.html')
-});
-
-// Get all users
-app.get('/api/users', (req, res) => {
-  User.find({}, (err, users) => {
-    if (err) {
-      return res.json({ error: err })
-    }
-    // return username and _id for users
-    // res.json(users.map(user => ({ username: user.username, _id: user._id })))
-    res.json(users)
-  })
-
-    // select only the username and _id fields
-    .select({ username: 1, _id: 1 })
-})
-
-// Create a new user
-app.post('/api/users', (req, res) => {
-
-  const username = req.body.username
-
+function addUser(req, res) {
+  let username = req.body.username
   if (!username || username.length === 0) {
-    res.json({ error: "empty username" });
+    res.json({ error: "Invalid username" })
   }
-
-  User.findOne({ username }, (err, user) => {
+  const user = new User({ username: username })
+  user.save(function (err, newUser) {
     if (err) {
-      return res.json({ error: err })
+      return console.log('addUser() error saving new user:', err)
     }
-
-    if (user) {
-      return res.json({ error: 'Username already taken' })
-    }
-
-    const newUser = new User({ username })
-
-    newUser.save((err, user) => {
-      if (err) {
-        return res.json({ error: err })
-      }
-      res.json({
-        username: user.username,
-        _id: user._id
-      })
-    })
+    res.json({ username: newUser.username, _id: newUser._id })
   })
-})
+}
 
-// Create a new exercise
-app.post('/api/users/:_id/exercises', (req, res) => {
-
-  const userId = req.params._id
-
-  const { description, duration, date } = req.body
-  const dateToSave = date ? new Date(date) : new Date()
-
-  // check if the date is valid
-  if (date && !Date.parse(date)) {
-    return res.json({ error: 'Invalid date' })
-  }
-
-  // find the user
-  User.findOne({ _id: userId }, (err, user) => {
-    if (err) {
-      return res.json({ error: err })
-    }
-
-    // create a new exercise
-    const newExercise = new Exercise({
-      userId: userId,
-      description: description,
-      duration: parseInt(duration),
-      date: dateToSave.toDateString()
-    })
-
-    newExercise.save((err, data) => {
+function getAllUsers(req, res) {
+  User.find()
+    .select('username _id')
+    .exec(function (err, userList) {
       if (err) {
-        return res.json({ error: err })
+        return console.log('getAllUsers() error:', err)
       }
-
-      res.json({
-        username: user.username,
-        description: data.description,
-        duration: data.duration,
-        date: data.date.toDateString(),
-        _id: data.userId
-      })
+      res.json(userList)
     })
+}
 
-  })
-})
 
-// Get user exercises between date range and limit the number to return
-app.get('/api/users/:_id/logs', (req, res) => {
-
-  // remove [ and ] from the request query object's keys and values
-  const query = Object.keys(req.query).reduce((acc, key) => {
-
-    // remove [ and ] from the key and value
-    const newKey = key.replace('[', '').replace(']', '')
-    acc[newKey] = req.query[key].replace('[', '').replace(']', '')
-    return acc
-  }, {})
-
-  // extract the objects from the request query
-  const { from, to, limit } = query
-
-  // check if the dates from and to are valid
-  if (from && !Date.parse(from)) {
-    return res.json({ error: 'Invalid date' })
-  }
-  if (to && !Date.parse(to)) {
-    return res.json({ error: 'Invalid date' })
-  }
-
-  // find the user
-  User.findOne({ _id: req.params._id }, (err, user) => {
-    if (err) {
-      return res.json({ error: err })
-    }
-
-    else if (!user) {
-      return res.json({ error: 'User not found' })
-    }
-
-    // get the exercises
-    Exercise.find({ userId: req.params._id }, (err, exercises) => {
-
+function addExercise(req, res) {
+  const userId = req.params.userId || req.body.userId 
+  const exObj = {
+    description: req.body.description,
+    duration: +req.body.duration,
+    date: req.body.date || defaultDate()
+  } 
+  
+  
+  User.findByIdAndUpdate(
+    userId,
+    { $push: { exercices: exObj } },
+    { new: true },
+    function (err, updatedUser) {
       if (err) {
-        return res.json({ error: err })
+        return console.log('error:', err)
       }
-      if (!exercises) {
-        return res.json({ error: 'Exercises not found' })
+      let returnObj = {
+        username: updatedUser.username,
+        description: exObj.description,
+        duration: exObj.duration,
+        _id: userId,
+        date: new Date(exObj.date).toDateString()
       }
+      res.json(returnObj)
+    }
+  )
+}
 
-      // filter the exercises by date range
-      if (from && to) {
-        exercises = exercises.filter(
-          exercise => exercise.date >= new Date(from) && exercise.date <= new Date(to)
-        )
-      } else if (from) {
-        exercises = exercises.filter(exercise => exercise.date >= new Date(from))
-      } else if (to) {
-        exercises = exercises.filter(exercise => exercise.date <= new Date(to))
-      }
 
-      // format the exercises
-      exercises = exercises.map(exercise => {
-        return {
-          description: exercise.description,
-          duration: exercise.duration,
-          date: exercise.date.toDateString()
+function getLog(req, res) {
+  let userId = req.params["_id"]
+  let dFrom = req.query.from || '0000-00-00'
+  let dTo = req.query.to || '9999-99-99'
+  let limit = +req.query.limit || 10000
+
+  User.findOne({ _id: userId }, function (err, user) {
+    if (err) {
+      return console.log('getLog() error:', err)
+    }
+    try {
+      let e1 = user.exercices.filter(e => e.date >= dFrom && e.date <= dTo)
+      let e2 = e1.map(e => (
+        {
+          description: e.description,
+          duration: e.duration,
+          date: e.date
         }
-      })
+      ))
+      let ex = user.exercices.filter(e => e.date >= dFrom && e.date <= dTo)
+        .map(e => (
+          {
+            description: e.description,
+            duration: e.duration,
+            date: e.date
+          }
+        ))
+        .slice(0, limit)
+      let logObj = {}
+      logObj.count = ex.length
+      logObj._id = user._id
+      logObj.username = user.username
+      logObj.log = ex
+      res.json(logObj)
 
-      // limit the number of exercises to return
-      if (limit) {
-        exercises = exercises
-          .slice(0, limit)
-      }
-
-      // return the user logs
-      res.json({
-        username: user.username,
-        count: exercises.length,
-        _id: req.params._id,
-        log: exercises
-      })
-    })
-      .select({ description: 1, duration: 1, date: 1, _id: 0 })
+    } catch (err) {
+      console.log(err)
+      res.json(ERR_USER_NOTFUND)
+    }
   })
-})
+}
+
+app.get('/', (req, res) => res.sendFile(__dirname + '/views/index.html'))
+
+app.post("/api/users", addUser)
+app.post("/api/exercise/new-user", addUser)
+
+app.get("/api/users", getAllUsers)
+app.get("/api/exercise/users", getAllUsers)
+
+app.post("/api/exercise/add", addExercise) 
+
+app.all("/api/users/:userId/exercises", addExercise) 
+
+app.get("/api/exercises/:userId/log", getLog)
+app.get("/api/users/:_id/logs", getLog)
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
