@@ -134,14 +134,8 @@ app.get('/api/users/:_id/logs', (req, res) => {
     // remove [ and ] from the key and value
     const newKey = key.replace('[', '').replace(']', '')
     acc[newKey] = req.query[key].replace('[', '').replace(']', '')
-
     return acc
-
   }, {})
-
-  // Failed: You can add from, to and limit parameters to a GET /api/users/:_id/logs request to retrieve part of the log of any user. from and to are dates in yyyy-mm-dd format. limit is an integer of how many logs to send back.
-
-  // The response returned from POST /api/users/:_id/exercises will be the user object with the exercise fields added.
 
   // extract the objects from the request query
   const { from, to, limit } = query
@@ -174,6 +168,15 @@ app.get('/api/users/:_id/logs', (req, res) => {
         return res.json({ error: 'Exercises not found' })
       }
 
+      // format the exercises
+      exercises = exercises.map(exercise => {
+        return {
+          description: exercise.description,
+          duration: exercise.duration,
+          date: exercise.date.toDateString()
+        }
+      })
+
       // filter the exercises by date range
       if (from && to) {
         exercises = exercises.filter(
@@ -191,16 +194,6 @@ app.get('/api/users/:_id/logs', (req, res) => {
           .slice(0, limit)
       }
 
-      // format the exercises
-      exercises = exercises.map(exercise => {
-        return {
-          description: exercise.description,
-          duration: exercise.duration,
-          date: exercise.date.toDateString()
-        }
-
-      })
-
       // return the user logs
       res.json({
         username: user.username,
@@ -210,8 +203,6 @@ app.get('/api/users/:_id/logs', (req, res) => {
       })
     })
       .select({ description: 1, duration: 1, date: 1, _id: 0 })
-
-
   })
 })
 
