@@ -12,6 +12,7 @@ app.use(cors())
 app.use(express.static('public'))
 
 // connect to the database
+mongoose.set('strictQuery', false)
 mongoose.connect('mongodb+srv://parmenide:jesus123@fccmongoose.srblnut.mongodb.net/?retryWrites=true&w=majority',
   err => {
     if (err) throw err;
