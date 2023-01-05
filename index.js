@@ -55,7 +55,7 @@ app.post("/api/users", (req, res) => {
   user.save(function (err, newUser) {
 
     if (err) {
-      return console.log(err)
+      return console.log("Error occurred: \n" + err)
     }
     res.json({ username: newUser.username, _id: newUser._id })
   })
@@ -71,7 +71,7 @@ app.get("/api/users", (req, res) => {
     .exec(function (err, userList) {
 
       if (err) {
-        return console.log(err)
+        return console.log("Error occurred: \n" + err)
       }
 
       res.json(userList)
@@ -103,7 +103,7 @@ app.post("/api/users/:_id/exercises", (req, res) => {
     function (err, updatedUser) {
 
       if (err) {
-        return console.log('error:', err)
+        return console.log("Error occurred: \n" + err)
       }
 
       let userExer = {
@@ -122,14 +122,29 @@ app.post("/api/users/:_id/exercises", (req, res) => {
 app.get("/api/users/:_id/logs", (req, res) => {
 
   let userId = req.params._id
-  let dateFrom = req.query.from || '0000-00-00'
-  let dateTo = req.query.to || '9999-99-99'
-  let limit = +req.query.limit || 10000
+
+  // remove [ and ] from the request query object's keys and values
+  const query = Object.keys(req.query).reduce((acc, key) => {
+
+    // remove [ and ] from the key and value
+    const newKey = key.replace('[', '').replace(']', '')
+    acc[newKey] = req.query[key].replace('[', '').replace(']', '')
+
+    return acc
+
+  }, {})
+
+  // extract the objects from the request query
+  const { from, to, limit } = query
+
+  let dateFrom = from || '0000-00-00'
+  let dateTo = to || '9999-99-99'
+  let lim = +limit || 10000
 
   User.findOne({ _id: userId }, function (err, user) {
 
     if (err) {
-      return console.log(err)
+      return console.log("Error occurred: \n" + err)
     }
 
     try {
@@ -138,9 +153,9 @@ app.get("/api/users/:_id/logs", (req, res) => {
         ({
           description: exc.description,
           duration: exc.duration,
-          date: exc.date
+          date: new Date(exc.date).toDateString()
         }))
-        .slice(0, limit)
+        .slice(0, lim)
 
       res.json({
         count: exer.length,
@@ -150,9 +165,8 @@ app.get("/api/users/:_id/logs", (req, res) => {
       })
 
     } catch (err) {
-      console.log(err)
-
-      res.json("User not found")
+      console.log("Error occurred: \n" + err)
+      res.json("Error occurred: \n" + err)
     }
 
   })
