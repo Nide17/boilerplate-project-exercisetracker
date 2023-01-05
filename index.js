@@ -126,7 +126,6 @@ app.post('/api/users/:_id/exercises', (req, res) => {
 
 // Get user exercises between date range and limit the number to return
 app.get('/api/users/:_id/logs', (req, res) => {
-  const userId = req.params._id
 
   // remove [ and ] from the request query object's keys and values
   const query = Object.keys(req.query).reduce((acc, key) => {
@@ -149,7 +148,7 @@ app.get('/api/users/:_id/logs', (req, res) => {
   }
 
   // find the user
-  User.findOne({ userId }, (err, user) => {
+  User.findOne({ _id: req.params._id }, (err, user) => {
     if (err) {
       return res.json({ error: err })
     }
@@ -159,7 +158,7 @@ app.get('/api/users/:_id/logs', (req, res) => {
     }
 
     // get the exercises
-    Exercise.find({ userId }, (err, exercises) => {
+    Exercise.find({ userId: req.params._id }, (err, exercises) => {
 
       if (err) {
         return res.json({ error: err })
@@ -198,7 +197,7 @@ app.get('/api/users/:_id/logs', (req, res) => {
       res.json({
         username: user.username,
         count: exercises.length,
-        _id: user._id,
+        _id: req.params._id,
         log: exercises
       })
     })
